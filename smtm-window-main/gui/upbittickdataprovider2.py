@@ -35,7 +35,7 @@ class PyTicks:
                 self.falsebotcount=self.falsebotcount+1     #재확인을 위한 체크
 
                 #체크가 3번일 때
-                if self.falsebotcount >2:
+                if self.falsebotcount >1:
                     print(f"{omarket} : {percent} 봇 끝났나 확인해주세요")  #봇 종료 확인
                     self.falsebotcount=0
                     self.truebot.remove(omarket)

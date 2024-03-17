@@ -72,14 +72,19 @@ class UpbitMarket:
         return new_df
 
 
-    def plusmarket(self,market):
+    #퍼센트가 0퍼센트보다 위에 있다면 반환
+    def plusmarket(self,market, count= 40):
         plmarket= market[market['percent'] > 0]
 
         marketlist=plmarket.index.tolist()
+
+        if len(marketlist) > 40 :
+            sortvol = plmarket.sort_values(by='acc_trade_price', ascending=False)
+            top_40 = sortvol.head(count)
+            print(top_40)
+            marketlist=top_40.index.tolist()
+
         return marketlist
-
-
-    # market=allmarket()
 
 
     # price=pd.DataFrame(get_changerate(market))

@@ -20,6 +20,7 @@ class Operator:
         self.timer = None
         self.worker = Worker("Operator-Worker")
         self.pyticks=PyTicks()
+        self.umakret=UpbitMarket()
         self.state = None
         self.marketlist=[]
 
@@ -118,23 +119,22 @@ class Operator:
 
 
     def setmarket(self):
-        umakret=UpbitMarket()
+
 
         #마켓 이름을 싹 다 가져와요,.
-        markets=umakret.allmarket()
+        markets=self.umakret.allmarket()
 
         #마켓 이름을 전송해서 현재정보를 가져와요
-        markets=umakret.get_changerate(markets)
+        markets=self.umakret.get_changerate(markets)
 
         #마켓 들을 모두 보기좋게 가공해요
-        ret=umakret.betterlook(markets)
+        ret=self.umakret.betterlook(markets)
 
         #플러스된 마켓들만 가져와요
-        plusmarket=umakret.plusmarket(ret)
-
-        #마켓리스트에 저장~
+        plusmarket=self.umakret.plusmarket(ret)
+                
         self.marketlist=plusmarket
-
+        
         return plusmarket
     
 
