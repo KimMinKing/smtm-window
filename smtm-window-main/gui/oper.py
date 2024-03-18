@@ -60,7 +60,10 @@ class Operator:
         self.is_timer_running = False
         try:
             # 거래 정보 가져오기
-            self.pyticks.initailize(self.marketlist)
+            #self.pyticks.initailize(self.marketlist)
+
+            #새롭게 내가 만드는 거임.
+            self.umakret.plusmarket
         except (AttributeError, TypeError) as msg:
             print(f"실행 실패: {msg}")
         print("거래가 완료되었습니다. #####################")
@@ -131,10 +134,10 @@ class Operator:
         ret=self.umakret.betterlook(markets)
 
         #플러스된 마켓들만 가져와요
-        plusmarket=self.umakret.plusmarket(ret)
+        gmarkets=self.umakret.plusmarket(ret)
                 
-        self.marketlist=plusmarket
+        self.marketlist=gmarkets
         
-        return plusmarket
+        return gmarkets
     
 

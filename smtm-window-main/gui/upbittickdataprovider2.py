@@ -6,6 +6,7 @@ import pandas as pd
 from upbittickdataprovider import UpbitTickProvider
 from upbitmarket import UpbitMarket
 from datetime import datetime, timezone, timedelta
+from concurrent.futures import ThreadPoolExecutor
 import winsound as sd
 
 class PyTicks:
@@ -29,7 +30,7 @@ class PyTicks:
             new_df = self.betterlook(df)
             botnum=self.botcheck(new_df)
             percent='%.2f%%'% (botnum/len(new_df) * 100)
-
+            timecheck=self.sttimecheck(new_df)
             #이미 걸렸던 것 재확인
             if omarket in self.truebot and botnum <120:
                 self.falsebotcount=self.falsebotcount+1     #재확인을 위한 체크
@@ -37,6 +38,8 @@ class PyTicks:
                 #체크가 3번일 때
                 if self.falsebotcount >1:
                     print(f"{omarket} : {percent} 봇 끝났나 확인해주세요")  #봇 종료 확인
+                    sd.Beep(2000, 1000)
+                    sd.Beep(1000, 1000)
                     self.falsebotcount=0
                     self.truebot.remove(omarket)
 
@@ -45,7 +48,7 @@ class PyTicks:
                 pass
 
             #처음 걸린거
-            elif botnum>120:
+            elif botnum>120 and timecheck:
                 #처음 걸렸다.
                 
                 print(f"{omarket} : {percent}")
@@ -120,7 +123,8 @@ class PyTicks:
         rows_with_conditions = df[df['total'].isin(botmoney)]
         
         bot_df = pd.DataFrame()
-
+        #시간차 계산
+        
         # 각 조건에 대해 범위 내에 있는 행을 선택하여 새로운 DataFrame에 추가
         for moenyone in botmoney:
             lower_bound = moenyone
@@ -138,8 +142,21 @@ class PyTicks:
 
         return botnum
 
+    def sttimecheck(self,df):
+        
 
+        # 최고값과 최저값 계산
+        max_time = df['trade_time_utc'].max()
+        min_time = df['trade_time_utc'].min()
+        # 시간 차이 계산
 
+        time_difference = max_time - min_time
+
+        
+                # 시간 차이가 3분보다 작은지 확인
+        if time_difference < pd.Timedelta(minutes=3):
+            return True
+        
 
     #모든 데이터를 보기좋게 가공함
     def betterlook(self, df):
@@ -153,6 +170,10 @@ class PyTicks:
         new_df['total'] = new_df['trade_price'] * new_df['trade_volume']
         #총거래금액 칼럼 int형으로 만들기
         new_df['total']=new_df['total'].astype(int)
+
+        #시간 타입 정하기
+        new_df['trade_time_utc'] = pd.to_datetime(df['trade_time_utc'], format='%H:%M:%S')
+
 
         #trade_time utc로 정렬해서 인덱스 재설정하기
         new_df=new_df.sort_values(by='trade_time_utc')
@@ -264,13 +285,27 @@ class PyTicks:
         return df
 
 
+    #종목 url 만들기
+    def makeurls(self, markets, count=500):
+        urllist=[]
+        for market in markets:
+            urllist.append(f"https://api.upbit.com/v1/trades/ticks?market={market}&count={count}")
+        return urllist
 
-    def test(self,ab):
-        ab=ab-1
-        print(f"{ab}, test1")
-        if ab>1:
-            ab=self.test(ab)
-        return ab
+    #비동기로 데이터 획득
+    def threadgettick(self, urls):
+
+        #무조건 urls를 10으로 나눴을 때 나머지가 0이어야 함.
+        cycle=urls/10
+        with ThreadPoolExecutor(max_workers=10) as pool:
+            response_list = list(pool.map(self.get_tick,urls))
+        return response_list
+
+    #데이터 가져오기
+    def get_tick(self, url):
+        response=requests.get(url).json()
+        df = pd.DataFrame(response)
+        return df
 
 
 # 실행 코드
