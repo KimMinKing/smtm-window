@@ -6,6 +6,7 @@ from oper import Operator
 from upbittickdataprovider import UpbitTickProvider
 from os import environ       # environ 를 import 해야 아래 suppress_qt_warnings 가 정상 동작하니다
 
+
 form_class = uic.loadUiType("mywindow.ui")[0]
 
 class MyWindow(QMainWindow, form_class):
@@ -39,9 +40,13 @@ class MyWindow(QMainWindow, form_class):
     #종목이 뜨게 하는거임.
     def marketcheck(self):
         marketcount=self.operator.setmarket()
-        self.marketconsole.append(f"현재 업비트에서 상승을 보이고 있는 마켓의 갯수는 {len(marketcount)} 개 입니다.")
-        self.marketconsole.append(f"시작하시려면 시작 버튼을 눌러주십시오.")
-        
+        self.marketconsole.append(f"추가된 마켓의 갯수는 {len(marketcount)} 개 입니다.")
+
+    #다른 클래스에서 메세지 넣을 때
+    def write(self, message):
+        self.marketconsole.append(message)
+
+
     def alert(self, msg):
         self.marketconsole.append(f"{msg}")
 
@@ -49,6 +54,9 @@ class MyWindow(QMainWindow, form_class):
         cur_time=QTime.currentTime()
         str_time=cur_time.toString("hh:mm:ss")
         self.statusBar().showMessage(str_time)
+
+        botlistn=self.operator.setmessage()
+        self.botlisttext.setPlainText(botlistn)
         
 
     def stop(self):

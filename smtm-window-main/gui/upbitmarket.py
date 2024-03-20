@@ -73,26 +73,33 @@ class UpbitMarket:
 
 
     #퍼센트가 0퍼센트보다 위에 있다면 반환
-    def plusmarket(self,market, count= 40):
-        plmarket= market[market['percent'] > 0]
+    def plusmarket(self, market, count=40):
+        # 0보다 큰 퍼센트 데이터 필터링
+        plmarket = market[market['percent'] > 0]
 
-        marketlist=plmarket.index.tolist()
+        # 0보다 큰 퍼센트 데이터가 40개 이상인 경우
+        if len(plmarket) >= count:
+            # 10의 자리로 반올림하여 개수 맞추기
+            count = (len(plmarket) // 10) * 10
+            # 퍼센트를 기준으로 내림차순 정렬
+            sorted_market = plmarket.sort_values(by='percent', ascending=False)
+            # 개수에 맞게 데이터를 가져옴
+            result = sorted_market.head(count).index.tolist()
+        else:
+            # 0보다 큰 퍼센트 데이터가 40개 미만인 경우
+            # 0보다 작은 퍼센트 데이터 필터링
+            mi_market = market[market['percent'] < 0]
+            # 남은 개수만큼의 0보다 작은 퍼센트 데이터를 가져옴
+            remaining_count = count - len(plmarket)
+            # 퍼센트를 기준으로 내림차순 정렬
+            sorted_mi_market = mi_market.sort_values(by='percent', ascending=False)
+            # 0보다 큰 퍼센트 데이터와 0보다 작은 퍼센트 데이터를 합쳐서 반환
+            result = plmarket.index.tolist() + sorted_mi_market.head(remaining_count).index.tolist()
+        
+        #마켓 대가리만 가져옴.
+        return result
 
-        if len(marketlist) > 40 :
-            sortvol = plmarket.sort_values(by='acc_trade_price', ascending=False)
-            top_40 = sortvol.head(count)
-            print(top_40)
-            marketlist=top_40.index.tolist()
 
-        return marketlist
-
-
-    # price=pd.DataFrame(get_changerate(market))
-
-    # data=gagong(price)
-
-
-    # print(len(data))
 # 실행 코드
 if __name__ == "__main__":
     test=UpbitMarket()

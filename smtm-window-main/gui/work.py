@@ -45,7 +45,7 @@ class Worker:
                     break   # 나가
 
 
-                print(f"가즈아.. 워커 이름은 :{self.name}, 쓰레드 get ident 는 {threading.get_ident()}")
+                #print(f"가즈아.. 워커 이름은 :{self.name}, 쓰레드 get ident 는 {threading.get_ident()}")
                 runnable = task["runnable"]
                 runnable(task)
                 self.task_queue.task_done()

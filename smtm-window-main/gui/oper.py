@@ -7,6 +7,9 @@ from work import Worker
 from upbittickdataprovider import UpbitTickProvider
 from upbittickdataprovider2 import PyTicks
 from upbitmarket import UpbitMarket
+from concurrent.futures import ThreadPoolExecutor
+from killbotstrategy import KILLBOT
+import inspect
 
 
 class Operator:
@@ -21,11 +24,11 @@ class Operator:
         self.worker = Worker("Operator-Worker")
         self.pyticks=PyTicks()
         self.umakret=UpbitMarket()
+        self.strategy=KILLBOT()
         self.state = None
         self.marketlist=[]
 
-        
-        print("Operator 입장")
+
 
     def initialize(self, data_provider, budget=500):
         if self.state is not None:
@@ -38,7 +41,6 @@ class Operator:
         """자동 거래를 시작한다
         자동 거래는 설정된 시간 간격에 맞춰서 Worker를 사용해서 별도의 스레드에서 처리된다.
         """
-        print("거래시작")
 
         if self.state != "ready":
             return False
@@ -56,14 +58,42 @@ class Operator:
     def _execute_trading(self, task):
         """자동 거래를 실행하고 타이머를 다시 시작한다."""
         del task  # 사용하지 않는 매개변수 삭제
-        print("거래가 시작되었습니다. #####################")
         self.is_timer_running = False
         try:
             # 거래 정보 가져오기
-            self.pyticks.initailize(self.marketlist)
+            #self.pyticks.initailize(self.marketlist)
+
+            #새롭게 내가 만드는 거임.
+
+            # response_list 초기화
+            response_list=[]
+
+            #url 만 만들고
+            urls=self.pyticks.makeurls(self.marketlist, count=500)
+            #그 만든걸 url 화 시키고
+            urldiv=self.pyticks.divideurl(urls)
+
+            # 나뉜 URL 리스트에 대해 반복하여 작업 수행
+            for chunk in urldiv:
+                #비동기 10개
+                with ThreadPoolExecutor(max_workers=10) as pool:
+                    response_list.extend(list(pool.map(self.pyticks.get_url,chunk)))
+                #쉬는시간 좀 주고
+                #time.sleep(0.1)
+
+
+            #이제 데이터를 가공하고 조건문을 붙여야 한다.
+            for response in response_list:
+                
+                #데이터 보기 이쁘게 하기
+                new_df=self.pyticks.betterlook(response)
+
+                #전략 넣기 나오는건 
+                gostrategy=self.strategy.killbotstrategy(new_df)
+
+
         except (AttributeError, TypeError) as msg:
             print(f"실행 실패: {msg}")
-        print("거래가 완료되었습니다. #####################")
         # 타이머 다시 시작
         self._start_timer()
         return True
@@ -77,7 +107,6 @@ class Operator:
         # 타이머 만료 시 호출될 함수 정의
         def on_timer_expired():
             self.timer_expired_time = datetime.now()
-            print("타이머 만료")
             self.worker.post_task({"runnable": self._execute_trading})
 
         # 설정된 간격이 1보다 작을 경우 직접 호출하고 타이머를 종료
@@ -116,7 +145,11 @@ class Operator:
         self.worker.stop()
         print("거래중단")
 
-
+    def setmessage(self):
+        textlist = self.strategy.botlist
+        if textlist:
+            botlistn= '\n'.join(textlist)
+            return botlistn
 
     def setmarket(self):
 
@@ -131,10 +164,10 @@ class Operator:
         ret=self.umakret.betterlook(markets)
 
         #플러스된 마켓들만 가져와요
-        plusmarket=self.umakret.plusmarket(ret)
+        gmarkets=self.umakret.plusmarket(ret)
                 
-        self.marketlist=plusmarket
+        self.marketlist=gmarkets
         
-        return plusmarket
+        return gmarkets
     
 
