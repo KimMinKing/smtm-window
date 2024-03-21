@@ -55,6 +55,7 @@ class MyWindow(QMainWindow, form_class):
         str_time=cur_time.toString("hh:mm:ss")
         self.statusBar().showMessage(str_time)
 
+        #봇 목록에 뜨게
         botlistn=self.operator.setmessage()
         self.botlisttext.setPlainText(botlistn)
         
