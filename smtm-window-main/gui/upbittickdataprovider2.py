@@ -8,10 +8,12 @@ from upbitmarket import UpbitMarket
 from datetime import datetime, timezone, timedelta
 from concurrent.futures import ThreadPoolExecutor
 import winsound as sd
+import numpy as np
 
 class PyTicks:
     URL = "https://api.upbit.com/v1/trades/ticks"
-
+    botmoney = np.array([151000, 161000, 206000, 226000, 236000])
+    botmoneyalpha = 5000
 
     def __init__(self, market=None, count=500, backtest=None):
         self.market=market
@@ -115,6 +117,15 @@ class PyTicks:
         return time_difference
 
 
+
+
+
+
+
+
+
+
+
     def botcheck(self, df):
         
         #봇 가격대
@@ -160,24 +171,26 @@ class PyTicks:
 
     #모든 데이터를 보기좋게 가공함
     def betterlook(self, df):
-
+        
         #살려둘 칼럼들
-        selected_columns = ['market', 'trade_time_utc','trade_price','trade_volume','ask_bid']
+        selected_columns = ['market', 'trade_time_utc','trade_price','trade_volume','ask_bid', 'timestamp']
         new_df = df[selected_columns].copy()
 
         
         #총 거래 금액 칼럼 추가하기
         new_df['total'] = new_df['trade_price'] * new_df['trade_volume']
         #총거래금액 칼럼 int형으로 만들기
-        new_df['total']=new_df['total'].astype(int)
 
         #시간 타입 정하기
         new_df['trade_time_utc'] = pd.to_datetime(df['trade_time_utc'], format='%H:%M:%S')
 
 
-        #trade_time utc로 정렬해서 인덱스 재설정하기
-        new_df=new_df.sort_values(by='trade_time_utc')
+        # #trade_time utc로 정렬해서 인덱스 재설정하기
+        new_df=new_df.sort_values(by='trade_time_utc', ascending=False)
         new_df = new_df.reset_index(drop=True)
+        # 종목별로 정렬하기
+        #sorted_df = new_df.groupby('market').apply(lambda x: x.sort_values(by='trade_time_utc')).reset_index(drop=True)
+    
 
         return new_df
 
@@ -301,9 +314,16 @@ class PyTicks:
     #그냥 request 받기
     def get_url(self,url):
         response=requests.get(url).json()
-        if type(response)==dict:
+        restype=type(response)
+        if restype==dict:
             print("에러 : too_many_requests")
-            return False
+            time.sleep(0.7)
+            response=requests.get(url).json()
+            restype=type(response)
+            if restype==dict:
+                print("쉬고 했는데도 에러 : too_many_requests")
+            return response
+            
         df = pd.DataFrame(response)
         return df
 

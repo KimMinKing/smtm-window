@@ -9,6 +9,7 @@ from upbittickdataprovider2 import PyTicks
 from upbitmarket import UpbitMarket
 from concurrent.futures import ThreadPoolExecutor
 from killbotstrategy import KILLBOT
+import pandas as pd
 import inspect
 
 
@@ -17,7 +18,7 @@ class Operator:
         self.data_provider = None
         self.strategy = None
         self.trader = None
-        self.interval=2
+        self.interval=0
         self.timer_expired_time=None
         self.is_timer_running = False
         self.timer = None
@@ -64,32 +65,42 @@ class Operator:
             #self.pyticks.initailize(self.marketlist)
 
             #새롭게 내가 만드는 거임.
-
             # response_list 초기화
             response_list=[]
 
             #url 만 만들고
-            urls=self.pyticks.makeurls(self.marketlist, count=500)
+            urls=self.pyticks.makeurls(self.marketlist, count=400)
             #그 만든걸 url 화 시키고
             urldiv=self.pyticks.divideurl(urls)
 
             # 나뉜 URL 리스트에 대해 반복하여 작업 수행
             for chunk in urldiv:
                 #비동기 10개
+                
                 with ThreadPoolExecutor(max_workers=10) as pool:
-                    response_list.extend(list(pool.map(self.pyticks.get_url,chunk)))
+                    
+                    #response_list.extend(list(pool.map(self.pyticks.get_url,chunk)))
+                                        # 각 결과를 DataFrame으로 변환
+                    dfs = [pd.DataFrame(result) for result in pool.map(self.pyticks.get_url, chunk)]
+
+                    # DataFrame 결합
+                    df_concatenated = pd.concat(dfs, ignore_index=True)
+                    new_df=self.pyticks.betterlook(df_concatenated)
+
+                    #self.strategy.manydata(new_df)
+                    # for data in datas:
+                    #     new_df=self.pyticks.betterlook(data)
+                    gostrategy=self.strategy.killbotstrategy2(new_df)
+
+            #print(f"한 사이클 돌았음")
+            #print(f"---- 프로그램 실행 시간은 {round(end-start, 1)}초")
+
                 #쉬는시간 좀 주고
-                #time.sleep(0.1)
+                #time.sleep(0.7)
 
 
             #이제 데이터를 가공하고 조건문을 붙여야 한다.
-            for response in response_list:
-                
-                #데이터 보기 이쁘게 하기
-                new_df=self.pyticks.betterlook(response)
 
-                #전략 넣기 나오는건 
-                gostrategy=self.strategy.killbotstrategy(new_df)
 
 
         except (AttributeError, TypeError) as msg:
