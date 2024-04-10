@@ -59,9 +59,9 @@ class Upbitwebsocket:
             target_request = self.strategy.update_trading_info(msg)
 
 
-            if len(target_request)>0:
-                sd.Beep(300, 500)
-                self.trader.send_request(target_request, self.send_request_callback)
+            # if len(target_request)>0:
+            #     sd.Beep(300, 500)
+            #     self.trader.send_request(target_request, self.send_request_callback)
 
 
     def on_message2(self, param):

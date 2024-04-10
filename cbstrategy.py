@@ -1,11 +1,14 @@
 import copy
 import time
+import math
 import json
 import numpy as np
 from datetime import datetime
+import winsound as sd
 from ttldict import TTLDictionary
 from decimal import Decimal, ROUND_DOWN
 from log_manager import LogManager
+from market import UpbitMarket
 import winsound
 
 class CBstrategy():
@@ -22,7 +25,7 @@ class CBstrategy():
     COMMISSION_RATIO = 0.0005
     ISO_DATEFORMAT = "%Y-%m-%dT%H:%M:%S"
     # botmoney = np.array([154000, 163000, 206000, 212000, 220000])
-    botmoney = np.array([151000,160000, 201000, 210000, 220000, 230000])
+    botmoney = np.array([154000,163000, 209000, 217000, 226000, 230000])
     botmoneyalpha = 8000
     STEP=2
 
@@ -44,14 +47,18 @@ class CBstrategy():
         self.waiting_request = {}
         self.position = None
         self.checklist={}
-        self.blacklist=["KRW-BTC", "KRW-XRP"]
+        self.blacklist=[]
         self.selllist=[]
         self.current_process = "ready"
         self.process_unit = (0, 0)  # budget and amount
         self.marketvollist={}
         self.showprocess=False
-        self.ttl = TTLDictionary(ttl=5)
+        self.ttl = TTLDictionary(ttl=3)
         self.logger = LogManager.get_logger(__class__.__name__)
+        self.upmarket=UpbitMarket()
+
+        self.starttime=None
+        self.endtime=None
         
     def initialize(self, budget, min_price=5000, profit=0.004, stoploss=0.0023):
         """
@@ -97,6 +104,7 @@ class CBstrategy():
             "total" : msg.get('trade_volume') * msg.get('trade_price')
         }
 
+
         final_requests=[]
         get_request=None
         #데이터가 있으면 getrequest로 전달
@@ -104,6 +112,7 @@ class CBstrategy():
         if self.data["trade_volume"]:
             #조건이 성립된다면 값이 들어가고
             get_request=self.__update_process(self.data)
+
 
 
         #매도리스트가 있다면    
@@ -114,14 +123,17 @@ class CBstrategy():
                 item['date_time']=now
                 request=self.__create_sell(item)
                 final_requests.append(request)
-
+            self.endtime=time.time()
+            
+            print(f"{self.endtime - self.starttime:.5f} sec")
             self.selllist.clear()
             
+
 
         #값이 들어와서 데이터 정리하기
         if get_request is not None:
             now = datetime.now().strftime(self.ISO_DATEFORMAT)  #시간넣기
-
+            # print(f"waiting 리스트 : {self.waiting_request}")
             #체결안된 주문 리스트들 취소하기
             for request_id in self.waiting_request:
                 print(f"취소 주문 추가! {request_id}")
@@ -137,7 +149,6 @@ class CBstrategy():
             if get_request['side']=="buy":
 
                 request= self.__create_buy(get_request)
-                print(f"_create 들어가는데 {request}")
                 request["date_time"] = now  #시간 넣어주기
                 final_requests.append(request)
                 #익절가 매도 추가
@@ -154,14 +165,19 @@ class CBstrategy():
                     sellrequest= self.__create_sell(profit_request)
 
                     final_requests.append(sellrequest)
+                    self.endtime=time.time()
+            
+                    print(f"{self.endtime - self.starttime:.5f} sec")
+
 
             #매도
             elif get_request['side']=="sell":
                 request= self.__create_sell(get_request)
                 request["date_time"] = now  #시간 넣어주기
                 final_requests.append(request)
-                
-        return final_requests
+        
+        return None
+        #return final_requests
 
 
         #print(info)
@@ -182,11 +198,7 @@ class CBstrategy():
             print(f"{market} - {tradeprice} - {ask_bid} - {tradetime}")
 
 
-        
-        
-
-
-        differences = total - self.botmoney
+        differences = self.botmoney-total
         
         botpricetrue = (differences >= 0) & (differences < self.botmoneyalpha)
 
@@ -245,6 +257,8 @@ class CBstrategy():
                             self.checklist.update({market:trueprice})
                             
                             print(f"[{market}] - {trueprice}봇  -{int(total):,} - {tradetime} : [{tradeprice}]  - {self.ttl.dictionary[market][trueprice]['BID']}")        
+                            self.starttime=time.time()
+                            self.upmarket.tess(self.starttime)
                             return {
                                 "market":market,
                                 "side": "buy",
@@ -270,16 +284,7 @@ class CBstrategy():
             self.ttl.reset(callback)    #삭제가 되는건 맞고
             self.ttl.start_ttl()  # TTL 재설정
 
-    def adjust_price_to_unit(self,price):
-        # 가격 단위에 맞게 가격을 조정하는 함수
-        steps = [(2000000, 1000), (1000000, 500), (500000, 100), (100000, 50),
-                (10000, 10), (1000, 1), (100, 0.1), (10, 0.01), (1, 0.001),
-                (0.1, 0.0001), (0.01, 0.00001), (0.001, 0.000001),
-                (0.0001, 0.0000001), (0, 0.00000001)]
-        for step, unit in steps:
-            if price >= step:
-                return round(price / unit) * unit
-        return price
+
 
     def callbackchecklist(self, dicts):
         tradetime = self.data["time"]
@@ -288,9 +293,10 @@ class CBstrategy():
         # 딕셔너리 수정 대상 저장 리스트
         keys_to_remove = []
         for market in self.checklist:
+             
             try:
                 current_value = dicts[market][self.checklist[market]]['BID']
-                if current_value < 2:
+                if current_value < 3:
                     print(f"{market} 봇 종료 - {tradetime} : - 시장가 매도 수량 : {self.marketvollist[market]}")
                     keys_to_remove.append(market)
                     self.selllist.append({
@@ -307,9 +313,7 @@ class CBstrategy():
                         # print(f"{market} : 20봇 화력은? 봇 개수 : {current_value}")
 
             except KeyError:
-                
                 print(f"{market} 봇 종료 - {tradetime} : - 처리 수량 : {self.marketvollist[market]}")
-                
                 keys_to_remove.append(market)
                 self.selllist.append({
                     "market":market,
@@ -402,9 +406,9 @@ class CBstrategy():
         # print(f"amount : {amount}")
 
         final_value = amount * price                #수량*금액 = 진입할 진짜 금액
-        print(f"marketvol 저장하는데 {amount} = {budget} / {price} | final : {final_value} realbud : {request['amount']} selfbalance = : {self.balance}")
+        # print(f"marketvol 저장하는데 {amount} = {budget} / {price} | final : {final_value} realbud : {request['amount']} selfbalance = : {self.balance}")
         self.marketvollist.update({request['market']:amount})
-        print(f"volist append : {self.marketvollist}")
+        # print(f"volist append : {self.marketvollist}")
         # 소숫점 4자리 아래 버림
         amount = Decimal(str(amount)).quantize(Decimal("0.0001"), rounding=ROUND_DOWN)
         
@@ -510,3 +514,15 @@ class CBstrategy():
         now = datetime.now()
         now_time = now.strftime("%H%M%S")
         return f"{time_prefix}.{now_time}"
+    
+
+    def adjust_price_to_unit(self,price):
+        # 가격 단위에 맞게 가격을 조정하는 함수
+        steps = [(2000000, 1000), (1000000, 500), (500000, 100), (100000, 50),
+                (10000, 10), (1000, 1), (100, 0.1), (10, 0.01), (1, 0.001),
+                (0.1, 0.0001), (0.01, 0.00001), (0.001, 0.000001),
+                (0.0001, 0.0000001), (0, 0.00000001)]
+        for step, unit in steps:
+            if price >= step:
+                return round(price / unit) * unit
+        return price

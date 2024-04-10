@@ -1,5 +1,6 @@
 import requests
-
+import math
+import time
 
 class UpbitMarket:
 
@@ -24,4 +25,11 @@ class UpbitMarket:
     def marketper(self, min=10):
         #10rest로 10분 전 애들을 구하는거 
         pass
+
+    def tess(self, start):
+        math.factorial(100000)
+        end = time.time()
+
+        print(f"{end - start:.5f} sec")
+
     

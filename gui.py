@@ -28,11 +28,6 @@ class MyWindow(QMainWindow, form_class):
 
         
 
-
-
-
-
-
         #####  Qt events  ######
         self.startbtn.clicked.connect(self.start)
         
@@ -47,6 +42,25 @@ class MyWindow(QMainWindow, form_class):
         self.bot15btn.clicked.connect(self.bot15test)
         self.bot15endbtn.clicked.connect(self.bot15endtest)
         self.bot20btn.clicked.connect(self.bot20test)
+
+
+
+    def start(self):
+        print("Starting Qt")
+        markets=self.upmarket.getmarketname()   #마켓 이름들 모두 가져오기 문자열임
+        request = '[{"ticket":"test"},{"type":"trade","codes":' + markets + '},{"type":"myTrade"}]'    #웹소켓 리퀘스트 체결거래 가져오는거임
+        self.websocket.initalize(request, callback=self.socketmsg, strategy=self.strategy)
+        self.run_thread = Thread(target=self.websocket.start)
+        self.run_thread.daemon = True
+
+        self.run_thread.start()
+
+
+        #버튼의 활성화 비활성화를 설정
+        self.startbtn.setEnabled(False)
+        self.stopbtn.setEnabled(True)
+
+
 
 
     def bot15test(self):
@@ -106,21 +120,6 @@ class MyWindow(QMainWindow, form_class):
         else:
             self.strategy.showprocess=False
 
-
-    def start(self):
-        print("Starting Qt")
-        markets=self.upmarket.getmarketname()   #마켓 이름들 모두 가져오기 문자열임
-        request = '[{"ticket":"test"},{"type":"trade","codes":' + markets + '},{"type":"myTrade"}]'    #웹소켓 리퀘스트 체결거래 가져오는거임
-        self.websocket.initalize(request, callback=self.socketmsg, strategy=self.strategy)
-        self.run_thread = Thread(target=self.websocket.start)
-        self.run_thread.daemon = True
-
-        self.run_thread.start()
-
-
-        #버튼의 활성화 비활성화를 설정
-        self.startbtn.setEnabled(False)
-        self.stopbtn.setEnabled(True)
 
 
     def socketmsg(self, msg):
