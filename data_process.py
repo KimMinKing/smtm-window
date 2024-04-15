@@ -13,7 +13,7 @@ class DataProcess:
             "trade_price" :data.get('trade_price', 0),
             "ask_bid" : data.get('ask_bid'),
             "time" : self.utctotime(data.get('trade_time')),
-            "total" :  f"{total:.2f}"
+            "total" :  total
         }
 
         return pdata
