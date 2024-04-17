@@ -26,7 +26,7 @@ class UpbitTrader:
             if request is None:
                 print("request 가 none이래")
                 continue
-            
+
             self.worker.post_task(
                 {
                     "runnable": self._execute_order,
@@ -38,8 +38,9 @@ class UpbitTrader:
 
     def _execute_order(self, task):
         data = task["request"]
-        key=next(iter(data))
-        request = data[key]
+        request = data
+        # print(f"data : {data}")
+        # print(f"request : {request}")
 
         if data is None:
             print(data)
@@ -58,7 +59,7 @@ class UpbitTrader:
 
         if is_buy and float(request["price"]) * amount > self.balance:
             request_price = float(request["price"]) * amount
-            print(f"계좌가 너무 작아요! {request_price} > {self.balance}")
+            print(f"계좌가 너무 작아요!{float(request['price'])} * {amount} {request_price} > {self.balance}")
             return
         
         #주문 넣기.
@@ -68,10 +69,10 @@ class UpbitTrader:
         if response is None:
             print("response is None 에러!")
             return
-        
-        if float(request["amount"]) == 0:       #시장가로 매수하고 수량이 정해지지 않으면 이걸 실행
-            response = self.getamount(response)
-        task["callback"](response)
+
+        # if float(request["amount"]) == 0:       #시장가로 매수하고 수량이 정해지지 않으면 이걸 실행
+        #     response = self.getamount(response)
+        # task["callback"](response)
 
 
 
@@ -85,8 +86,8 @@ class UpbitTrader:
 
 
     def _send_order(self, market, is_buy, price=None, volume=None):
-        print(f"주문 ##### {'매수' if is_buy else '매도'}")
-        print(f"{market}, 가격 : {price}, 수량 : {volume}")
+        #print(f"주문 ##### ")
+        print(f"{market} {'매수' if is_buy else '매도'} 주문 - 가격 : {price}, 수량 : {volume}")
         
 
         if price !=0 and volume != 0:    #코인가격과 수량이 존재하면 지정가
@@ -98,12 +99,12 @@ class UpbitTrader:
             
         elif volume != 0 and is_buy is False:
             # 시장가 매도
-            print(f"### {market} 시장가 매도 주문이 접수되었습니다 ###")
+            # print(f"### {market} 시장가 매도 주문이 접수되었습니다 ###")
             query = self._create_market_price_order_query(market, volume=volume)
 
         elif price !=0 and is_buy is True:
             # 시장가 매수
-            print(f"### {market} 시장가 매수 주문이 접수되었습니다 ###")
+            # print(f"### {market} 시장가 매수 주문이 접수되었습니다 ###")
             query = self._create_market_price_order_query(market, price=price)
 
         else:
