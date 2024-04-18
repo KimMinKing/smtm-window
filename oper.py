@@ -3,10 +3,11 @@ from upbitwebsocket import Upbitwebsocket
 from data_process import DataProcess
 from market.upbitmarket import UpbitMarket
 from strategy.strategy_canlong import StrategyCL
+from strategy.strategy_canl import StrategyCanL
 from trader.upbittrader import UpbitTrader
 
 class Operator:
-    def __init__(self, budget=10000, strategy=StrategyCL):
+    def __init__(self, budget=10000, strategy=StrategyCanL):
         self.budget = budget
 
         self.websocket = Upbitwebsocket()
@@ -14,11 +15,20 @@ class Operator:
         self.upbitmarket=UpbitMarket()
         self.strategy = strategy
         self.trader=UpbitTrader()
+        self.only="allonly"
 
 
     def initialize(self, info=None, budget=100000, min_price=5000):
+        if info:
+            self.only=info['only']
+            profit=info['profit']
+            stoploss=info['stoploss']
+
+            self.strategy.profit=profit
+            self.strategy.stoploss=stoploss
         self.budget = budget
         self.min_price = min_price
+        print("적용")
 
         ##info 정리
         # self.entry = info["entry"]
@@ -40,16 +50,13 @@ class Operator:
 
     def get_data_callback(self, data):
 
-        try:
-            if data.get('type') == 'trade':
-                pdata=self.dataprocessor.socketdataprocess(data)
-                self.strategys(pdata)
-            elif data.get('type') == 'myTrade':
-                pass
-                #self.update_order(data)
 
-        except Exception as e:
-            print(f"에러 발생: {e}")
+        if data.get('type') == 'trade':
+            pdata=self.dataprocessor.socketdataprocess(data)
+            self.strategys(pdata)
+        elif data.get('type') == 'myTrade':
+            self.strategy.update_result(data)
+
 
 
     # def update_order(self, data):
@@ -66,8 +73,22 @@ class Operator:
 
 
     def strategys(self, data):
-        self.strategy.checkdata(data)
-        fianllist=self.strategy.updateprocess()
+        fianllist=None
+
+        try:
+            self.strategy.checkdata2(data)
+
+            if self.only=="onlyall" or self.only=="onlyin":
+                fianllist=self.strategy.updateprocess(data)
+    
+        except IndexError as e:
+            print(f"에러 발생id: {e}")
+        except IndentationError as e:
+            print(f"에러 발생it: {e}")
+        except ZeroDivisionError as e:
+            print(f"에러 발생zd: {e}")
+        except ValueError as e:
+            print(f"에러 발생ve: {e}")
 
         if fianllist:
             self.trader.send_request(request_list=fianllist, callback=self.strategy.update_result)

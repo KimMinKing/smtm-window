@@ -1,19 +1,20 @@
 import numpy as np
 import time
 import winsound as sd
+import pprint
 from datetime import datetime, timedelta
 from collections import defaultdict
 from data_process import DataProcess
 class StrategyCanL:
 
-    botmoney = np.array([148000,158000,168000,198000, 205000, 211000, 215000, 222000])
-    botmoneyalpha = 5000
+    botmoney = np.array([150000,171000,200000, 221000, 240000])
+    botmoneyalpha = 10000
     COMMISSION_RATIO = 0.0005
 
     def __init__(self, budget=10000):
         self.budget=budget
-        self.blacklist=['KRW-CVC','KRW-STRAX','KRW-BTC','KRW-BTT']
-        self.ttl = TTLDictionary(ttl=4)
+        self.blacklist=['KRW-BTC', 'KRW-XRP']
+        self.ttl = TTLDictionary(ttl=3)
         self.data_process = DataProcess()
         self.checklist={}
         self.endlist={}
@@ -32,6 +33,7 @@ class StrategyCanL:
         self.profit=profit
         self.stoploss=stoploss
         self.showprocess=False
+        self.only=""
         self.ttl.start_ttl()
 
     def addblacklist(self, blacklist):
@@ -40,6 +42,21 @@ class StrategyCanL:
     def getamount(self):
         amount=self.budget/self.marketcount
 
+    def checkdata2(self, data):
+        market=data["market"]
+        askbid=data["ask_bid"]
+        total=data["total"]
+        tradeprice=data["trade_price"]
+
+        if market in self.blacklist:
+            return
+        
+        if type(self.ttl.dictionary[market])==np.ndarray:
+            self.ttl.dictionary[market] = np.append(self.ttl.dictionary[market], {total: askbid})
+        else:
+            self.ttl.dictionary.update({market:np.array([{total:askbid}])})
+
+        self.timeexpired2()
 
     def checkdata(self, data):
 
@@ -84,7 +101,7 @@ class StrategyCanL:
                 self.ttl.add_value(market, trueprice , askbid)     #'KRW-BTC' : 156000 : {BID : 0}
 
             
-            self.timeexpired()
+        self.timeexpired()
 
 
     def checkqualification(self, market, trueprice, tradeprice, data):
@@ -99,9 +116,9 @@ class StrategyCanL:
         if market in self.checklist.keys():
             return
         #없으면 봇이 두번 왔다가고 했으니 매수
-        elif current_value>3 and market not in self.checklist.keys():
+        elif current_value>9 and market not in self.checklist.keys():
             tradetime=self.data_process.getnow()
-            print(f"{tradetime} : {market} 봇 시작 - {trueprice}봇 -", end="")
+            print(f"{tradetime} : {market} 봇 시작 - {trueprice}봇 -{current_value}", end="")
             order={
                 "id":self.timestamp_id(),
                 "market":market,
@@ -132,7 +149,7 @@ class StrategyCanL:
 
             #익절가와 손절가를 확인함
 
-            if "targetprice" in self.checklist[market]:
+            if "targetprice" in self.checklist[market] and self.finallist[market]['progress'] !=5:
                 #익절가가 생성 되었으면
                 tradetime=self.data_process.getnow()
                 if tradeprice > self.checklist[market]['targetprice']:
@@ -142,7 +159,7 @@ class StrategyCanL:
                         "market":market,
                         "type": "sell",
                         "amount": self.asset[market],
-                        "price":tradeprice,
+                        "price":0,
                         "progress" : 3
                     }
                     print(f"{tradetime} : {market} 익절가 도달 : - 처리 수량 : {self.asset[market]} | 가격 : {tradeprice} > {self.checklist[market]['targetprice']}")
@@ -168,6 +185,7 @@ class StrategyCanL:
         elif market not in self.checklist.keys() and market in self.finallist.keys():
         #           봇은 안돌아가고                           진입에는 있다면
         #진입에서 매도를 할거임. 봇이 끝난 매도
+            print(f"{market} - 봇이 끝났기에 매도를 할거임")
             order={
                 "id": self.timestamp_id(), 
                 "market":market,
@@ -182,9 +200,11 @@ class StrategyCanL:
         elif market in self.checklist.keys() and market not in self.finallist.keys():
         #           봇은 돌아가는데                         진입에 없다면
         #final list에 추가하면서 진입을 하는거임
+            print(f"{market} - 봇이 돌아가기에 진입을 할거임")
             self.finallist.update({market:self.checklist[market]})
 
-
+        else:
+            print(f"무슨 경우지? {market} - {tradeprice}")
 
         progress=self.finallist[market]["progress"]
 
@@ -196,16 +216,15 @@ class StrategyCanL:
 
         orderlist=[]
 
-        if progress==0:     #아직 거래 안된거
-            print(f"채결이 안됨.")
+        if progress==0:     #아직 매수 완료 안된거
             orderlist.append(self.finallist[market])
-            self.finallist[market]["progress"]=9
+            self.finallist[market]["progress"]=9        #임시로 9로 뺌
         
         elif progress==1:   #매수 완료됬으니 실행하고
             if market in self.endlist.keys ():  #매도 리스트가 있다면 매도하고
-                print(f"매수가 완료되어서 매도를 신청할거임")
+
                 self.finallist.update({market:self.endlist[market]})
-                print(f"endlist를 삭제할거임. 왜냐? 봇이 끝나서 매도를 걸었다가 뺄거기 때문에")
+
                 del self.endlist[market]
                 orderlist.append(self.finallist[market])
 
@@ -214,23 +233,22 @@ class StrategyCanL:
             print(f"봇이 종료되어 매도를 신청하면 여기로 들어올거임")
 
         elif progress==3: 
-            print(f"익절로 매도를 신청하면 여기로 들어올거임")
+            pass        #익절
 
         elif progress==4:
-            print(f"봇이 종료되어 매도를 신청하면 여기로 들어올거임")
+            pass        #봇 정지
+
 
         elif progress==5:   #손절 혹은 익절을 한거면 3으로 됨
-            print(f"익절로 매도가 완료되면 봇이 돌 때 까지 가만히 있을거임")
+
             if market in self.endlist.keys():
                 del self.endlist[market]
                 del self.finallist[market]
-            if market in self.checklist.keys():
-                del self.checklist[market]
-            
+
 
         elif progress==6:
             # 모든것이 끝나서 다 삭제를 할거임.
-            print(f"final list랑 모든걸 삭제할거임")
+            print(f"{market} - end")
             if market in self.endlist.keys():
                 del self.endlist[market]
                 del self.finallist[market]
@@ -258,7 +276,7 @@ class StrategyCanL:
      
         if "ask_bid" in response:
             tradetime=self.data_process.getnow()
-
+            print("띠링",end="")
             #매수라면
             if response['ask_bid']=='BID':
                 #자동매매일 때
@@ -269,14 +287,48 @@ class StrategyCanL:
                     print(f"###{tradetime}### {market} 시장가 매수 주문이 {response['price']}에 성공하였습니다 ###", end="")
                     print(f"목표가 :{self.checklist[market]['targetprice']} | 손절가 {self.checklist[market]['outprice']}")
 
+            #매도
             elif response['ask_bid']=='ASK':
+                
                 if market in self.finallist.keys():
-                    self.finallist[market]["progress"]+=2
-                    del self.endlist[market]
+                    #진입되어 있을 때만
+                    
+                    if self.finallist[market]['progress']>1:
+                        #3이나 4일 때
+
+                        self.finallist[market]["progress"]+=2
+
+                        if market in self.endlist.keys():
+                            del self.endlist[market]
+
+                    elif self.finallist[market]["progress"]==1:
+                        #매수 하자마자
+                        self.finallist[market]["progress"]+=4
+
+                        if market in self.endlist.keys():
+                            del self.endlist[market]
 
                     print(f"###{tradetime}### {market} 시장가 매도 주문이 {response['price']}에 성공하였습니다 ###")
         
         print("-----------------------")
+
+    def timeexpired2(self):
+
+        #시간 만료되면 
+        if self.ttl.is_expired():
+            callback=None
+            #ttl데이터 리셋하는데 콜백으로 보여줘
+                #체크리스트를 6초에 한번씩 검사하는거야
+            callback=self.callbackchecklist2
+            self.ttl.reset(callback)    #삭제가 되는건 맞고
+            self.ttl.start_ttl()  # TTL 재설정
+
+
+    def callbackchecklist2(self, dicts):
+
+        pprint.pprint(dicts)
+
+
 
 
 
@@ -317,7 +369,7 @@ class StrategyCanL:
 
             if sellbool:
                 tradetime=self.data_process.getnow()
-                print(f"{tradetime} : {market} 봇 종료 : - 처리 수량 : {self.asset[market]}")
+                print(f"{tradetime} : {market} 봇 종료 : - 처리 수량 : {self.asset[market]} 봇수 : {current_value} | {self.finallist[market]}")
                 if market not in self.asset.keys():
                     print(f"{market} 봇이 끝났지만 잔고가 없음")
                     return
